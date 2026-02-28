@@ -7,6 +7,10 @@
 
 A fully documented, production-grade Power BI semantic model and report built on the classic Superstore dataset. The project covers end-to-end BI development — from data modelling and ETL to advanced DAX, interactive visuals, tariff scenario analysis, and a dynamic self-service data dictionary.
 
+[![Live Report](https://img.shields.io/badge/Live%20Report-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)]([https://your-powerbi-url.com](https://app.powerbi.com/view?r=eyJrIjoiNTQ2MTBiZTMtNmRiNy00MDlmLTlhZGUtNDc5YWQzZGQ5MmJiIiwidCI6ImM5M2IxYzk2LWJjYzMtNGZjYy04YWRmLTI0YjFmYjE4MGU0NyIsImMiOjl9&pageName=21dd967b652d00ed800c))
+
+<img width="1448" height="815" alt="image" src="https://github.com/user-attachments/assets/ca415b82-4688-448e-8515-d7ac891f4273" />
+
 ---
 
 ## 📊 Report Pages
@@ -14,28 +18,35 @@ A fully documented, production-grade Power BI semantic model and report built on
 | Page | Description |
 |------|-------------|
 | **Overview** | High-level KPI summary with revenue, profit, margin and cost cards with sparklines |
-| **Geography** | Revenue by state map, city efficiency scatter plot and city-level details matrix |
+| **Geography** | Revenue by state map, city efficiency scatter plot, details table and clustering |
 | **Products** | Product and sub-category performance with clustering and trend analysis |
 | **Time Intelligence** | YTD/QTD/MTD dynamic switching with YoY growth and target tracking |
 | **Tariff Analysis** | What-if scenario modelling for tariff rates and price increase impacts |
+| **Details Matrix** | A dynamic matrix with conditional formatting that allows for Dimension, Metric and Calculation 1 click changes |
 | **Dynamic Data Dictionary** | Searchable, filterable documentation of all model objects |
 
 ---
 
 ## 🗂️ Data Model
 
-### Star Schema
-The model follows a **normalised star schema** with a single fact table and dedicated dimension tables.
+### Fact Constellation Schema (Galaxy Schema)
+The model uses a **fact constellation schema** with two fact tables sharing 
+conformed dimensions, and snowflake elements on the product dimension.
 
-```
-DateTable ──────────────────────────────┐
-                                        │
-Subcategory ── Product ── Sales ── Customer
-                              │
-                         Target_Table ── DateTable
-                              │
-                         Subcategory
-```
+**Fact Tables**
+- `Sales` — transactional grain (one row per item ordered)
+- `Target_Table` — monthly × sub-category grain 
+
+**Conformed Dimensions** (shared by both fact tables)
+- `DateTable` — links to Sales via Order Date and Target_Table via Start of Month
+- `Subcategory` — links to Product and Target_Table
+
+**Snowflake Element**
+- `Product → Subcategory` — the product dimension is normalised into a 
+  second level rather than flattened into the fact table
+
+<img width="1287" height="798" alt="image" src="https://github.com/user-attachments/assets/8e88e508-5075-4d57-8606-a74eb3937c96" />
+
 
 ### Tables
 
@@ -77,7 +88,7 @@ Subcategory ── Product ── Sales ── Customer
 
 ## ⚙️ ETL — Power Query
 
-All tables share a single staging query `Superstore_Source` which handles the CSV connection, type changes and base transformations. Dimension tables (`Customer`, `Product`) reference this staging query and select only their relevant columns — ensuring a **single source of truth** with no version mismatches.
+All main tables share a single staging query `Superstore_Source` which handles the CSV connection, type changes and base transformations. Dimension tables (`Customer`, `Product`) reference this staging query and select only their relevant columns — ensuring a **single source of truth** with no version mismatches.
 
 ```
 Superstore_Source (disabled load)
@@ -85,13 +96,37 @@ Superstore_Source (disabled load)
     ├── Customer      → deduplicates by Customer ID
     └── Product       → deduplicates by Product ID, removes Category
 ```
+### Target Tables — ETL Design
 
+The target data is sourced from **5 separate CSV files**, each containing 
+monthly targets for each sub-category for a specific metric:
+
+| Query | Metric |
+|-------|--------|
+| `Target_Table_Revenue` | Annual revenue targets by month and sub-category |
+| `Target_Table_Profit` | Annual profit targets by month and sub-category |
+| `Target_Table_Profit_Margin` | Annual profit margin % targets by month and sub-category |
+| `Target_Table_Orders` | Annual order count targets by month and sub-category |
+| `Target_Table_Expenses` | Annual total cost targets by month and sub-category |
+
+These 5 queries are then **merged into a single `Target_Table`** using 
+Power Query's merge functionality, resulting in one unified target 
+table with all metrics at the same grain:
+
+> **Grain:** one row per month × sub-category combination
+```
+Target_Table_Revenue        ─┐
+Target_Table_Profit         ─┤
+Target_Table_Orders         ─┼──► Target_Table (merged)
+Target_Table_Expenses       ─┤
+Target_Table_Profit_Margin  ─┘
+```
 ### Source Data
 - **Format:** CSV (`,` delimiter, UTF-8)
 - **Rows:** 9,994 transactions
 - **Columns:** 27 source columns
-- **Coverage:** US only, 49 states (excludes Alaska and Hawaii)
-- **Date Range:** 2018–2025 (42 rows with 2026 Ship Dates are filtered out)
+- **Coverage:** US only, 49 states 
+- **Date Range:** 2022–2025 (42 rows with 2026 Ship Dates are filtered out)
 
 ---
 
@@ -148,24 +183,6 @@ A fully searchable **semantic model documentation page** powered by `INFO.VIEW.*
 
 ---
 
-## 📁 Repository Structure
-
-```
-📦 Superstore-PowerBI
- ┣ 📂 TMDL
- ┃ ┣ 📄 Measures_TMDL.txt          # All measures with /// descriptions
- ┃ ┣ 📄 Columns_TMDL.txt           # Model Columns table
- ┃ ┣ 📄 Tables_TMDL.txt            # Model Tables table
- ┃ ┣ 📄 Sales_Columns_TMDL.txt     # Sales table columns with descriptions
- ┃ ┣ 📄 Product_Columns_TMDL.txt   # Product table columns with descriptions
- ┃ ┗ 📄 Datetable_Columns_TMDL.txt # DateTable columns with descriptions
- ┣ 📂 Data
- ┃ ┗ 📄 Superstore_Prod_v2.csv     # Source data
- ┗ 📄 README.md
-```
-
----
-
 ## 🛠️ Technical Stack
 
 | Tool | Usage |
@@ -177,23 +194,13 @@ A fully searchable **semantic model documentation page** powered by `INFO.VIEW.*
 | **Tabular Editor** | Model metadata, annotations |
 | **INFO.VIEW functions** | Self-documenting data dictionary |
 | **K-Means Clustering** | Product and city segmentation |
-
----
-
-## 🚀 Getting Started
-
-1. Clone the repository
-2. Update the file path in the `Superstore_Source` Power Query staging query to point to your local copy of `Superstore_Prod_v2.csv`
-3. Refresh the dataset
-4. All tables, measures and relationships will load automatically
-
-> **Note:** The file path is centralised in `Superstore_Source` — you only need to update it in one place.
+| **Google Sheets** | Added columns such as Shipping Cost and Target tables creation to expand the scope of analysis |
 
 ---
 
 ## 👤 Author
 
-**José Pinto Lima dos Santos**
+**José Miguel Pinto Lima dos Santos**
 
 ---
 
