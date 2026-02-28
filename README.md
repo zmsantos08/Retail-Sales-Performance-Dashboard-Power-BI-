@@ -173,8 +173,8 @@ A dedicated what-if page allows users to model the impact of **tariff rates (0�
 
 ### K-Means Clustering
 Products and cities are segmented using **Power BI's built-in K-Means clustering**:
-- **Products** → 6 clusters: Star Products, High Volume Core, Low Volume Core, Loss Drivers, Volume Fillers, Contributors
-- **Cities** → 4 clusters: Flagship Cities, Contributors, Margin Risks, Small Markets
+- **Products** → 5 clusters: Star Products, Niche Performers, Contributors, Core, Loss Drivers
+- **Cities** → 6 clusters: Big contributors, Contributors, Flagship Cities, High Margin Cities, Margin Risk, Small Markets
 
 ### SVG Sparklines & Progress Bars
 All KPI cards include inline **SVG sparklines** rendered as `ImageUrl` calculated measures, with gradient fills and endpoint dots. Progress bars use colour-coded fill to show target achievement at sub-category level.
